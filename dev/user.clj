@@ -2,8 +2,7 @@
   (:require [nextjournal.clerk :as clerk]
             [advent-of-clerk.index :as index]))
 
-(clerk/serve! {:port 7878 :browse true})
-
 (comment
-  (clerk/build! {:paths (index/build-paths) :browse true}))
+  (clerk/serve! {:watch-paths ["src"] :port 8024 :browse? true})
 
+  (clerk/build! {:paths (index/build-paths) :browse? true}))
