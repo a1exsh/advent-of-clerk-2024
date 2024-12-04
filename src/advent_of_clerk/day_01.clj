@@ -28,7 +28,7 @@
 
 (def puzzle (parse-input input #_example))
 
-;; Part I: Total Distance
+;; ## Part I: Total Distance
 (->> puzzle
      (map sort)
      transpose
@@ -36,7 +36,7 @@
             (abs (- l r))))
      (reduce +))
 
-;; Part II: Similartiy Score
+;; ## Part II: Similartiy Score
 (def left  (first  puzzle))
 (def right (second puzzle))
 
