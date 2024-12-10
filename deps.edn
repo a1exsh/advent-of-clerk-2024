@@ -7,7 +7,11 @@
         org.babashka/cli {:mvn/version "0.7.52"}
 
         ;; silence log warnings
-        org.slf4j/slf4j-nop {:mvn/version "1.7.36"}}
+        org.slf4j/slf4j-nop {:mvn/version "1.7.36"}
+
+        datascript/datascript {:mvn/version "1.7.3"}
+
+        io.github.jackrusher/arrowic {:git/sha "73ab50393ea3f7f411f42dd6e60bee9491ee4dd3"}}
  
  :aliases {:nextjournal/clerk {:exec-fn nextjournal.clerk/build!
                                :exec-args {:index "src/advent_of_clerk/index.clj"
