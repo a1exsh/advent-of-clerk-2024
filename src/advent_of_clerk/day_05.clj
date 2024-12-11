@@ -3,8 +3,6 @@
   (:require [nextjournal.clerk :as clerk]
             [clojure.string :as str]
             [clojure.set :as set]
-            #_[clojure.walk :as walk]
-            #_[datascript.core :as d]
             [arrowic.core :as arr]))
 
 (def example
@@ -71,7 +69,7 @@
 #_(-> (render-graph (puzzle :rules))
     #_(assoc :nextjournal/width :full))
 
-;; ## Walking the graph
+;; ## Walking the path of digression
 ;;
 ;; Let's make a mapping from each page that should be printed "before" to all
 ;; pages that should be printed "after" it:
@@ -142,45 +140,50 @@
                                   (puzzle :rules)))
     (assoc :nextjournal/width :full))
 
-;; ## Datascript
-(comment
-  (def conn (d/create-conn))
-
-  (->> puzzle
-       :rules
-       (map (fn [[page-before page-after]]
-              {:db/id (format "%s|%s" page-before page-after)
-               :page-before page-before
-               :page-after page-after}))
-       (d/transact! conn))
-
-  (d/q '[:find ?page-before
-         :where [_ :page-before ?page-before]]
-       @conn))
-
 ;; ## Part I
 ;;
 ;; Looks like we don't even need to saturate the graph for the first part.
 ;;
-(defn correctly-ordered? [pages]
+(defn correctly-ordered? [rules pages]
   (->> pages
        (partition 2 1)
        (map vec)
-       (every? (puzzle :rules))))
+       (every? rules)))
+
+(def correctly-ordered-updates
+  (->> puzzle
+       :updates
+       (filter (partial correctly-ordered? (puzzle :rules)))))
 
 (defn middle-page [pages]
   (nth pages (quot (count pages) 2)))
 
 (middle-page ["1" "2" "3"])
 
-(def correctly-ordered-updates
-  (->> puzzle
-       :updates
-       (filter correctly-ordered?)))
-
-(def middle-pages
+(def middle-pages-of-correctly-ordered-updates
   (map middle-page correctly-ordered-updates))
 
-(->> middle-pages
+(->> middle-pages-of-correctly-ordered-updates
+     (map parse-long)
+     (reduce +))
+
+;; ## Part II
+;;
+(defn page-before? [rules x y]
+  (contains? rules [x y]))
+
+(defn order-correctly [rules pages]
+  (sort (partial page-before? rules) pages))
+
+(def updates-with-corrected-order
+  (->> puzzle
+       :updates
+       (remove (partial correctly-ordered? (puzzle :rules)))
+       (map (partial order-correctly (puzzle :rules)))))
+
+(def middle-pages-of-updates-with-corrected-order
+  (map middle-page updates-with-corrected-order))
+
+(->> middle-pages-of-updates-with-corrected-order
      (map parse-long)
      (reduce +))
