@@ -1,6 +1,7 @@
 ;; # [🎄 Advent of Clerk 2024: Day 6: Guard Gallivant](https://adventofcode.com/2024/day/6)
 (ns advent-of-clerk.day-06
   (:require [nextjournal.clerk :as clerk]
+            [nextjournal.clerk.viewer :as v]
             [clojure.string :as str]))
 
 (def example
@@ -25,7 +26,7 @@
        (map vec)
        (into [])))
 
-(def puzzle (parse-input #_example input))
+(def puzzle (parse-input #_input example))
 
 (def directions "^>v<")
 
@@ -88,12 +89,57 @@
 ;; ## Part I
 
 ;; Finally, we are ready to move the guard a step, or two:
-(def path
+(def guard-path
   (->> guard
        (iterate (partial move-guard clean-board))
        (take-while #(not (nil? %)))))
 
-(->> path
+(def guard-path-frames
+  (->> guard-path
+       (reductions (fn [board guard]
+                     (assoc-in board (guard :pos) (guard :dir)))
+                   puzzle)))
+
+;; Let's try to draw the path that the guard has taken:
+(defn render-board [board]
+  (->> board
+       (map (partial apply str))
+       (str/join "\n")))
+
+(def board-viewer
+  {:transform-fn (clerk/update-val #(clerk/html [:pre (render-board %)]))})
+
+
+(defn slider-viewer [max-value]
+  {:transform-fn (comp (clerk/update-val symbol)
+                       clerk/mark-presented)
+   :render-fn `(fn [x]
+                 [:input {:type :range
+                          :value (:counter @@(resolve x))
+                          :min 0
+                          :max ~max-value
+                          :on-change #(swap! @(resolve x)
+                                             assoc
+                                             :counter
+                                             (int (.. % -target -value)))}])})
+
+^::clerk/sync
+(defonce frame* (atom {:counter 0}))
+#_(reset! frame* {:counter 0})
+
+^{::clerk/viewer (slider-viewer (dec (count guard-path-frames)))}
+`frame*
+
+(def frame-number (:counter @frame*))
+(def frame-to-render (nth guard-path-frames frame-number))
+
+
+(v/with-viewer board-viewer
+  frame-to-render)
+
+;; The actual answer to the first part of the puzzle:
+(->> guard-path
      (map :pos)
+     (cons (guard :pos))                ; don't forget the initial position!
      distinct
      count)
