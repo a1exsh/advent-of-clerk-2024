@@ -26,7 +26,10 @@
        (map vec)
        (into [])))
 
-(def puzzle (parse-input #_input example))
+(def puzzle (parse-input #_example input))
+
+(def height (count puzzle))
+(def width  (count (first puzzle)))
 
 (def directions "^>v<")
 
@@ -87,29 +90,43 @@
       (throw (Exception. (format "Something unexpected found: %c" c))))))
 
 ;; ## Part I
-
-;; Finally, we are ready to move the guard a step, or two:
+;;
+;; Finally, we are ready to move the guard a step, or two.  NB: using the
+;; clean board to avoid stumbling upon our own initial position!
+;;
 (def guard-path
   (->> guard
        (iterate (partial move-guard clean-board))
        (take-while #(not (nil? %)))))
 
+;; The actual answer to the first part of the puzzle:
+(->> guard-path
+     (map :pos)
+     (cons (guard :pos))                ; don't forget the initial position!
+     distinct
+     count)
+
+;;
+;; Let's try to draw the path that the guard has taken by commencing some 🐢
+;; graphics.  Using `reductions` to also capture all intermediate frames:
+;;
 (def guard-path-frames
   (->> guard-path
        (reductions (fn [board guard]
                      (assoc-in board (guard :pos) (guard :dir)))
                    puzzle)))
 
-;; Let's try to draw the path that the guard has taken:
 (defn render-board [board]
   (->> board
        (map (partial apply str))
        (str/join "\n")))
 
 (def board-viewer
-  {:transform-fn (clerk/update-val #(clerk/html [:pre (render-board %)]))})
+  {:transform-fn (clerk/update-val #(-> (clerk/html [:pre (render-board %)])
+                                        (assoc :nextjournal/width :full)))})
 
 
+;; Magic: https://github.com/a1exsh/advent-of-clerk-2022/blob/38eef2ed8c921d673a7775503f144c0121c45c50/src/advent_of_clerk/day_12.clj#L186
 (defn slider-viewer [max-value]
   {:transform-fn (comp (clerk/update-val symbol)
                        clerk/mark-presented)
@@ -127,8 +144,8 @@
 (defonce frame* (atom {:counter 0}))
 #_(reset! frame* {:counter 0})
 
-^{::clerk/viewer (slider-viewer (dec (count guard-path-frames)))}
-`frame*
+(v/with-viewer (slider-viewer (dec (count guard-path-frames)))
+  `frame*)
 
 (def frame-number (:counter @frame*))
 (def frame-to-render (nth guard-path-frames frame-number))
@@ -136,10 +153,3 @@
 
 (v/with-viewer board-viewer
   frame-to-render)
-
-;; The actual answer to the first part of the puzzle:
-(->> guard-path
-     (map :pos)
-     (cons (guard :pos))                ; don't forget the initial position!
-     distinct
-     count)
