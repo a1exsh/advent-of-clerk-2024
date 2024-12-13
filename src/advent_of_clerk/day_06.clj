@@ -25,7 +25,7 @@
        (map vec)
        (into [])))
 
-(def puzzle (parse-input #_input example))
+(def puzzle (parse-input #_example input))
 
 (def height (count puzzle))
 (def width  (count (first puzzle)))
@@ -123,44 +123,27 @@
        (map (partial apply str))
        (str/join "\n")))
 
-(def board-viewer
+#_(def board-viewer
   {:transform-fn (clerk/update-val #(-> (clerk/html [:pre (render-board %)])
                                         (assoc :nextjournal/width :full)))})
 
-
 (def frames-viewer
-  {:transform-fn (comp (clerk/update-val symbol)
-                       clerk/mark-presented)
-   :render-fn '(fn [sym]
-                 (let [atom* @(resolve sym)
-                       {:keys [rendered-frames frame-number]} @atom*]
+  {:transform-fn clerk/mark-presented
+   :render-fn '(fn [rendered-frames]
+                 (reagent.core/with-let [frame* (reagent.core/atom 0)]
                    [:div
                     [:input {:type :range
-                             :value frame-number
+                             :value @frame*
                              :min 0
-                             :max (-> rendered-frames count dec)
-                             :on-change #(swap! atom*
-                                                assoc
-                                                :frame-number
-                                                (int (.. % -target -value)))}]
-                    [:p "Frame: " frame-number]
-                    [:pre (nth rendered-frames frame-number)]]))})
+                             :max (dec (count rendered-frames))
+                             :on-change #(reset! frame*
+                                                 (int (.. % -target -value)))}]
+                    [:p "Frame: " @frame*]
+                    [:pre (get rendered-frames @frame*)]]))})
 
-^::clerk/sync
-(defonce frames*
-  (atom {:rendered-frames (map render-board guard-path-frames)
-         :frame-number 0}))
-#_(reset! frames*
-          {:rendered-frames (map render-board guard-path-frames)
-           :frame-number 0})
+(def rendered-frames
+  (mapv render-board guard-path-frames))
 
-(-> (clerk/with-viewer frames-viewer
-      `frames*)
-    (assoc :nextjournal/width :full))
-
-(comment
-  (def frame-number (:frame-number @frames*))
-  (def frame-to-render (nth (:frames @frames*) frame-number))
-
-  (clerk/with-viewer board-viewer
-    frame-to-render))
+^{::clerk/width :full}
+(clerk/with-viewer frames-viewer
+  rendered-frames)
