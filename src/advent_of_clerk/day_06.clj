@@ -128,36 +128,35 @@
                                         (assoc :nextjournal/width :full)))})
 
 
-;; Magic: https://github.com/a1exsh/advent-of-clerk-2022/blob/38eef2ed8c921d673a7775503f144c0121c45c50/src/advent_of_clerk/day_12.clj#L186
 (def frames-viewer
-  {:transform-fn (comp (clerk/update-val identity #_symbol)
+  {:transform-fn (comp (clerk/update-val symbol)
                        clerk/mark-presented)
    :render-fn '(fn [sym]
                  (let [atom* @(resolve sym)
-                       {:keys [frames frame-number]} @atom*
-                       ;; TODO: extract fn to cljc
-                       render-board (fn [board]
-                                      (->> board
-                                           (map (partial apply str))
-                                           (clojure.string/join "\n")))]
+                       {:keys [rendered-frames frame-number]} @atom*]
                    [:div
                     [:input {:type :range
                              :value frame-number
                              :min 0
-                             :max (-> frames count dec)
+                             :max (-> rendered-frames count dec)
                              :on-change #(swap! atom*
                                                 assoc
                                                 :frame-number
                                                 (int (.. % -target -value)))}]
                     [:p "Frame: " frame-number]
-                    [:pre (render-board (nth frames frame-number))]]))})
+                    [:pre (nth rendered-frames frame-number)]]))})
 
 ^::clerk/sync
-(defonce frames* (atom {:frames guard-path-frames :frame-number 0}))
-#_(reset! frames* {:frames guard-path-frames :frame-number 0})
+(defonce frames*
+  (atom {:rendered-frames (map render-board guard-path-frames)
+         :frame-number 0}))
+#_(reset! frames*
+          {:rendered-frames (map render-board guard-path-frames)
+           :frame-number 0})
 
-(clerk/with-viewer frames-viewer
-  `frames*)
+(-> (clerk/with-viewer frames-viewer
+      `frames*)
+    (assoc :nextjournal/width :full))
 
 (comment
   (def frame-number (:frame-number @frames*))
