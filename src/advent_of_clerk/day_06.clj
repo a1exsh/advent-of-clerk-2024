@@ -1,7 +1,6 @@
 ;; # [🎄 Advent of Clerk 2024: Day 6: Guard Gallivant](https://adventofcode.com/2024/day/6)
 (ns advent-of-clerk.day-06
   (:require [nextjournal.clerk :as clerk]
-            [nextjournal.clerk.viewer :as v]
             [clojure.string :as str]))
 
 (def example
@@ -26,7 +25,7 @@
        (map vec)
        (into [])))
 
-(def puzzle (parse-input #_example input))
+(def puzzle (parse-input #_input example))
 
 (def height (count puzzle))
 (def width  (count (first puzzle)))
@@ -102,7 +101,8 @@
 ;; The actual answer to the first part of the puzzle:
 (->> guard-path
      (map :pos)
-     (cons (guard :pos))                ; don't forget the initial position!
+     ;; initial position is implicitly included, due to how `iterate` works
+     #_(cons (guard :pos))
      distinct
      count)
 
@@ -114,7 +114,9 @@
   (->> guard-path
        (reductions (fn [board guard]
                      (assoc-in board (guard :pos) (guard :dir)))
-                   puzzle)))
+                   puzzle)
+       (drop 1)                         ; nothing happens in the first frame
+       ))
 
 (defn render-board [board]
   (->> board
@@ -127,29 +129,39 @@
 
 
 ;; Magic: https://github.com/a1exsh/advent-of-clerk-2022/blob/38eef2ed8c921d673a7775503f144c0121c45c50/src/advent_of_clerk/day_12.clj#L186
-(defn slider-viewer [max-value]
-  {:transform-fn (comp (clerk/update-val symbol)
+(def frames-viewer
+  {:transform-fn (comp (clerk/update-val identity #_symbol)
                        clerk/mark-presented)
-   :render-fn `(fn [x]
-                 [:input {:type :range
-                          :value (:counter @@(resolve x))
-                          :min 0
-                          :max ~max-value
-                          :on-change #(swap! @(resolve x)
-                                             assoc
-                                             :counter
-                                             (int (.. % -target -value)))}])})
+   :render-fn '(fn [sym]
+                 (let [atom* @(resolve sym)
+                       {:keys [frames frame-number]} @atom*
+                       ;; TODO: extract fn to cljc
+                       render-board (fn [board]
+                                      (->> board
+                                           (map (partial apply str))
+                                           (clojure.string/join "\n")))]
+                   [:div
+                    [:input {:type :range
+                             :value frame-number
+                             :min 0
+                             :max (-> frames count dec)
+                             :on-change #(swap! atom*
+                                                assoc
+                                                :frame-number
+                                                (int (.. % -target -value)))}]
+                    [:p "Frame: " frame-number]
+                    [:pre (render-board (nth frames frame-number))]]))})
 
 ^::clerk/sync
-(defonce frame* (atom {:counter 0}))
-#_(reset! frame* {:counter 0})
+(defonce frames* (atom {:frames guard-path-frames :frame-number 0}))
+#_(reset! frames* {:frames guard-path-frames :frame-number 0})
 
-(v/with-viewer (slider-viewer (dec (count guard-path-frames)))
-  `frame*)
+(clerk/with-viewer frames-viewer
+  `frames*)
 
-(def frame-number (:counter @frame*))
-(def frame-to-render (nth guard-path-frames frame-number))
+(comment
+  (def frame-number (:frame-number @frames*))
+  (def frame-to-render (nth (:frames @frames*) frame-number))
 
-
-(v/with-viewer board-viewer
-  frame-to-render)
+  (clerk/with-viewer board-viewer
+    frame-to-render))
