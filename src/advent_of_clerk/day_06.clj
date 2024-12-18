@@ -50,13 +50,13 @@
        (map (fn [[pos c]] {:pos pos :dir c}))
        first))
 
-(def guard (find-guard puzzle))
+(def initial-guard (find-guard puzzle))
 
 ;;
 ;; To avoid confusion in case the guard stumbles upon her own initial position
 ;; we denote it as an empty space:
 ;;
-(def clean-board (assoc-in puzzle (guard :pos) \.))
+(def clean-board (assoc-in puzzle (initial-guard :pos) \.))
 
 ;; For each direction, define the next move's dy and dx:
 (def dir->dyx
@@ -83,9 +83,9 @@
         next-pos [(+ y dy) (+ x dx)]
         c (get-in board next-pos)]
     (case c
-      nil nil                                 ; gone
-      \#  {:pos pos      :dir (next-dir dir)} ; blocked, turn
-      \.  {:pos next-pos :dir dir}            ; free, move there
+      nil     nil                                 ; gone
+      (\# \O) {:pos pos      :dir (next-dir dir)} ; blocked, turn
+      \.      {:pos next-pos :dir dir}            ; free, move there
       (throw (Exception. (format "Something unexpected found: %c" c))))))
 
 ;; ## Part I
@@ -94,7 +94,7 @@
 ;; clean board to avoid stumbling upon our own initial position!
 ;;
 (def guard-path
-  (->> guard
+  (->> initial-guard
        (iterate (partial move-guard clean-board))
        (take-while #(not (nil? %)))))
 
@@ -110,13 +110,16 @@
 ;; Let's try to draw the path that the guard has taken by commencing some 🐢
 ;; graphics.  Using `reductions` to also capture all intermediate frames:
 ;;
-(def guard-path-frames
-  (->> guard-path
-       (reductions (fn [board guard]
-                     (assoc-in board (guard :pos) (guard :dir)))
-                   puzzle)
+(defn path-frames [board path]
+  (->> path
+       (reductions (fn [b step]
+                     (assoc-in b (step :pos) (step :dir)))
+                   board)
        (drop 1)                         ; nothing happens in the first frame
        ))
+
+(def guard-path-frames
+  (path-frames puzzle guard-path))
 
 (defn render-board [board]
   (->> board
@@ -147,3 +150,99 @@
 ^{::clerk/width :full}
 (clerk/with-viewer frames-viewer
   rendered-frames)
+
+;; ## Part II: Introducing Obstructions
+;;
+;; First we need to be able to detect a loop in the path.  Luckily, we have
+;; all the information we need, that is: as soon as the guard returns into a
+;; position that she has already visited *and* is facing the same direction as
+;; before, we can assume she is going to be stuck in this loop forever.
+;;
+(defn determine-fate
+  ([board guard]
+   (determine-fate #{} [] board guard))
+
+  ([steps path board next-step]
+   (if (nil? next-step)
+     {:fate :gone
+      :path path}
+     (if (contains? steps next-step)
+       {:fate :stuck
+        :path (conj path next-step)}
+       (recur (conj steps next-step)
+              (conj path next-step)
+              board
+              (move-guard board next-step))))))
+
+(determine-fate clean-board initial-guard)
+
+;; In the example, put an obstruction next to the guard's initial position:
+(def example-obstruction1-board
+  (assoc-in clean-board [6 3] \O))
+
+(def example-obstruction1-fate
+  (determine-fate example-obstruction1-board initial-guard))
+
+^{::clerk/width :full}
+(clerk/with-viewer frames-viewer
+  (->> example-obstruction1-fate
+       :path
+       (path-frames example-obstruction1-board)
+       (mapv render-board)))
+
+;;
+;; It only makes sense to put the obstructions along the path taken by the
+;; guard, which helps to reduce the search space dramatically.
+;;
+;; The trick is to track the positions of the obstructions so placed, so that
+;; we can later count only the distinct positions (the guard may cross the
+;; same position more than one time, as we know).
+;;
+(defn foresee-fates [board guard]
+  (loop [fates []
+         next-step guard]
+    (if (nil? next-step)
+      fates
+      ;; always try to put an obstruction on the next step to be taken:
+      (let [obstruction (move-guard board next-step)]
+        (recur (if (and obstruction
+                        ;; don't put obstruction on the initial guard position
+                        (not= (:pos obstruction) (:pos guard)))
+                 (let [obstructed-board (assoc-in board (:pos obstruction) \O)
+                       ;; always start from the initial guard position!
+                       fate (determine-fate obstructed-board guard)]
+                   (conj fates
+                         (assoc fate
+                                :board obstructed-board
+                                :obstruction obstruction)))
+                 fates)
+               (move-guard board next-step))))))
+
+(def all-fates
+  (foresee-fates clean-board initial-guard))
+
+(def all-stuck-fates
+  (filter #(-> % :fate (= :stuck)) all-fates))
+
+(count all-stuck-fates)
+
+;; Answer to the second part of the puzzle:
+(->> all-stuck-fates
+     (map (comp :pos :obstruction))
+     distinct
+     count)
+
+^{::clerk/width :full}
+(clerk/with-viewer frames-viewer
+  (->> all-fates
+       (map #(path-frames (:board %) (:path %)))
+       (map last)
+       (mapv render-board)))
+
+(->> all-stuck-fates
+     (map (fn [fate]
+            ^{::clerk/width :full}
+            (clerk/with-viewer frames-viewer
+              (->> (fate :path)
+                   (path-frames (fate :board))
+                   (mapv render-board))))))
