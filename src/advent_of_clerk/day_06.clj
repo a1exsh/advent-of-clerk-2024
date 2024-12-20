@@ -126,10 +126,6 @@
        (map (partial apply str))
        (str/join "\n")))
 
-#_(def board-viewer
-  {:transform-fn (clerk/update-val #(-> (clerk/html [:pre (render-board %)])
-                                        (assoc :nextjournal/width :full)))})
-
 (def frames-viewer
   {:transform-fn clerk/mark-presented
    :render-fn '(fn [rendered-frames]
@@ -147,6 +143,7 @@
 (def rendered-frames
   (mapv render-board guard-path-frames))
 
+#_
 ^{::clerk/width :full}
 (clerk/with-viewer frames-viewer
   rendered-frames)
@@ -177,18 +174,19 @@
 (determine-fate clean-board initial-guard)
 
 ;; In the example, put an obstruction next to the guard's initial position:
-(def example-obstruction1-board
-  (assoc-in clean-board [6 3] \O))
+(comment
+  (def example-obstruction1-board
+    (assoc-in clean-board [6 3] \O))
 
-(def example-obstruction1-fate
-  (determine-fate example-obstruction1-board initial-guard))
+  (def example-obstruction1-fate
+    (determine-fate example-obstruction1-board initial-guard))
 
-^{::clerk/width :full}
-(clerk/with-viewer frames-viewer
-  (->> example-obstruction1-fate
-       :path
-       (path-frames example-obstruction1-board)
-       (mapv render-board)))
+  ^{::clerk/width :full}
+  (clerk/with-viewer frames-viewer
+    (->> example-obstruction1-fate
+         :path
+         (path-frames example-obstruction1-board)
+         (mapv render-board))))
 
 ;;
 ;; It only makes sense to put the obstructions along the path taken by the
@@ -226,7 +224,9 @@
 
 (time
  (def all-stuck-fates
-   (filter #(-> % :fate (= :stuck)) all-fates)))
+   (->> all-fates
+        (filter #(-> % :fate (= :stuck)))
+        (into []))))
 
 (count all-stuck-fates)
 
@@ -236,36 +236,77 @@
      distinct
      count)
 
-^{::clerk/width :full}
-(clerk/with-viewer frames-viewer
-  (->> all-fates
-       (map #(path-frames (:board %) (:path %)))
-       (map last)
-       (mapv render-board)))
+;; ### All fates
+(def slider-viewer
+  {:transform-fn clerk/mark-presented
+   :render-fn '(fn [sym]
+                 (let [atom* @(resolve sym)
+                       slider @atom*]
+                   [:input {:type :range
+                            :value (:value slider)
+                            :min 0
+                            :max (:max slider)
+                            :on-change #(swap! atom*
+                                               assoc
+                                               :value
+                                               (int (.. % -target -value)))}]))})
+
+^::clerk/sync
+(defonce fate-number*
+  (atom {:value 0
+         :max (dec (count all-fates))}))
+
+(clerk/with-viewer slider-viewer
+  `fate-number*)
+
+^{::clerk/visibility {:code :hide}}
+(clerk/html
+ [:div "Fate: "
+  (:value @fate-number*) " / " (:max @fate-number*)])
+
+;;^{::clerk/auto-expand-results? true}
+(def fate
+  (nth all-fates (:value @fate-number*)))
 
 ^{::clerk/width :full}
 (clerk/with-viewer frames-viewer
-  (->> all-stuck-fates
-       (map #(path-frames (:board %) (:path %)))
-       (map last)
+  (->> (fate :path)
+       (path-frames (fate :board))
+       (mapv render-board)))
+
+;; ### All stuck fates
+^::clerk/sync
+(defonce stuck-fate-number*
+  (atom {:value 0
+         :max (dec (count all-stuck-fates))}))
+
+(clerk/with-viewer slider-viewer
+  `stuck-fate-number*)
+
+^{::clerk/visibility {:code :hide}}
+(clerk/html
+ [:div "Stuck fate: "
+  (:value @stuck-fate-number*) " / " (:max @stuck-fate-number*)])
+
+;; ^{::clerk/auto-expand-results? true}
+(def stuck-fate
+  (nth all-stuck-fates (:value @stuck-fate-number*)))
+
+^{::clerk/width :full}
+(clerk/with-viewer frames-viewer
+  (->> (stuck-fate :path)
+       (path-frames (stuck-fate :board))
        (mapv render-board)))
 
 ;;
 ;; **Uncomment only for the _example_ input.**
 ;;
 ;; The for real puzzle it will try to use ~180 GB of memory to render...
-#_
-(->> all-stuck-fates
-     (map (fn [fate]
-            ^{::clerk/width :full}
-            (clerk/with-viewer frames-viewer
-              (->> (fate :path)
-                   (path-frames (fate :board))
-                   (mapv render-board))))))
-
-^{::clerk/width :full}
-(let [fate (nth all-stuck-fates 25)]
-  (clerk/with-viewer frames-viewer
-    (->> (fate :path)
-         (path-frames (fate :board))
-         (mapv render-board))))
+(comment
+  (->> all-stuck-fates
+       (map (fn [fate]
+              ^{::clerk/width :full}
+              (clerk/with-viewer frames-viewer
+                (->> (fate :path)
+                     (path-frames (fate :board))
+                     (mapv render-board)))))))
