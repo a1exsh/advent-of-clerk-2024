@@ -130,15 +130,17 @@
   {:transform-fn clerk/mark-presented
    :render-fn '(fn [rendered-frames]
                  (reagent.core/with-let [frame* (reagent.core/atom 0)]
-                   [:div
-                    [:input {:type :range
-                             :value @frame*
-                             :min 0
-                             :max (dec (count rendered-frames))
-                             :on-change #(reset! frame*
-                                                 (int (.. % -target -value)))}]
-                    [:p "Frame: " @frame*]
-                    [:pre (get rendered-frames @frame*)]]))})
+                   (let [max-value (dec (count rendered-frames))
+                         value (min @frame* max-value)]
+                     [:div
+                      [:input {:type :range
+                               :value value
+                               :min 0
+                               :max max-value
+                               :on-change #(reset! frame*
+                                                   (int (.. % -target -value)))}]
+                      [:p "Frame: " value]
+                      [:pre (get rendered-frames value)]])))})
 
 (def rendered-frames
   (mapv render-board guard-path-frames))
@@ -256,6 +258,8 @@
   (atom {:value 0
          :max (dec (count all-fates))}))
 
+#_(swap! fate-number* assoc :max (dec (count all-fates)))
+
 (clerk/with-viewer slider-viewer
   `fate-number*)
 
@@ -279,6 +283,8 @@
 (defonce stuck-fate-number*
   (atom {:value 0
          :max (dec (count all-stuck-fates))}))
+
+#_(swap! stuck-fate-number* assoc :max (dec (count all-stuck-fates)))
 
 (clerk/with-viewer slider-viewer
   `stuck-fate-number*)
