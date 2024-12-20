@@ -243,6 +243,18 @@
        (map last)
        (mapv render-board)))
 
+^{::clerk/width :full}
+(clerk/with-viewer frames-viewer
+  (->> all-stuck-fates
+       (map #(path-frames (:board %) (:path %)))
+       (map last)
+       (mapv render-board)))
+
+;;
+;; **Uncomment only for the _example_ input.**
+;;
+;; The for real puzzle it will try to use ~180 GB of memory to render...
+#_
 (->> all-stuck-fates
      (map (fn [fate]
             ^{::clerk/width :full}
@@ -250,3 +262,10 @@
               (->> (fate :path)
                    (path-frames (fate :board))
                    (mapv render-board))))))
+
+^{::clerk/width :full}
+(let [fate (nth all-stuck-fates 25)]
+  (clerk/with-viewer frames-viewer
+    (->> (fate :path)
+         (path-frames (fate :board))
+         (mapv render-board))))
