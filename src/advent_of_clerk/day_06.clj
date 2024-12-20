@@ -218,11 +218,15 @@
                  fates)
                (move-guard board next-step))))))
 
-(def all-fates
-  (foresee-fates clean-board initial-guard))
+(time
+ (def all-fates
+   (foresee-fates clean-board initial-guard)))
 
-(def all-stuck-fates
-  (filter #(-> % :fate (= :stuck)) all-fates))
+(count all-fates)
+
+(time
+ (def all-stuck-fates
+   (filter #(-> % :fate (= :stuck)) all-fates)))
 
 (count all-stuck-fates)
 
