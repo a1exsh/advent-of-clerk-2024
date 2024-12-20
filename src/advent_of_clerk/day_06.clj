@@ -142,14 +142,10 @@
                       [:p "Frame: " value]
                       [:pre (get rendered-frames value)]])))})
 
-(time
- (def rendered-frames
-   (mapv render-board guard-path-frames)))
-
 #_
 ^{::clerk/width :full}
 (clerk/with-viewer frames-viewer
-  rendered-frames)
+  (mapv render-board guard-path-frames))
 
 ;; ## Part II: Introducing Obstructions
 ;;
