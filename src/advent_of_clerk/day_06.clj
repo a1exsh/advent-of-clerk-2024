@@ -142,8 +142,9 @@
                       [:p "Frame: " value]
                       [:pre (get rendered-frames value)]])))})
 
-(def rendered-frames
-  (mapv render-board guard-path-frames))
+(time
+ (def rendered-frames
+   (mapv render-board guard-path-frames)))
 
 #_
 ^{::clerk/width :full}
