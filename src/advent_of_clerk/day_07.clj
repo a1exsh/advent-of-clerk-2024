@@ -53,30 +53,43 @@
 (def tree1 (make-tree '(11 6 16 20)))
 
 (insert-ops tree1)
+
+(defn eval-form [form]
+  (if (seq? form)
+    (let [[op l r] form]
+      ((case op + + * *) (eval-form l) (eval-form r)))
+    form))
+
 (eval (first (insert-ops tree1)))
+(eval-form (first (insert-ops tree1)))
 
 (def plus-trees
   (->> puzzle
        (map (fn [[l rs]]
-               [l (make-tree rs)]))
+              [l (make-tree rs)]))
        (into [])))
 
 (def plus-forms
   (->> plus-trees
        (map (fn [[l tree]]
-               [l (insert-ops tree)]))
+              [l (insert-ops tree)]))
        (into [])))
 
 (def plus-vals
   (->> plus-forms
        (map (fn [[l forms]]
-               [l (->> forms
-                       (pmap eval)
-                       (into []))]))
+              [l (->> forms
+                      (map eval-form)
+                      (into []))]))
        (into [])))
 
-(->> plus-vals
-     (filter (fn [[l values]]
-               (some #{l} values)))
-     (map first)
-     (reduce +))
+(def calibrations
+  (->> plus-vals
+       (filter (fn [[l values]]
+                 (some #{l} values)))))
+
+(def correct-test-values
+  (map first calibrations))
+
+(def total-calibration-result
+  (reduce + correct-test-values))
