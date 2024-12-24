@@ -1,7 +1,8 @@
 ;; # [🎄 Advent of Clerk 2024: Day 7: Bridge Repair](https://adventofcode.com/2024/day/7)
 (ns advent-of-clerk.day-07
   (:require [nextjournal.clerk :as clerk]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.math :as math]))
 
 (def example "
 190: 10 19
@@ -43,53 +44,144 @@
 
 (make-tree '(11 6 16 20))
 
-(defn insert-ops [[l r]]
-  (for [op '(+ *)
+(defn make-forms [ops [l r]]
+  (for [op ops
         l_ (if (seq? l)
-             (insert-ops l)
+             (make-forms ops l)
              [l])]
     (list op l_ r)))
 
+(def ops1 '(+ *))
+
 (def tree1 (make-tree '(11 6 16 20)))
 
-(insert-ops tree1)
+(def forms1 (make-forms ops1 tree1))
 
-(defn eval-form [form]
+(defn eval-form1 [form]
   (if (seq? form)
     (let [[op l r] form]
-      ((case op + + * *) (eval-form l) (eval-form r)))
+      ((case op + + * *) (eval-form1 l) (eval-form1 r)))
     form))
 
-(eval (first (insert-ops tree1)))
-(eval-form (first (insert-ops tree1)))
+(eval (first forms1))
+(eval-form1 (first forms1))
 
-(def plus-trees
+(time
+ (def plus-trees
+   (->> puzzle
+        (map (fn [[l rs]]
+               [l (make-tree rs)]))
+        (into []))))
+
+(time
+ (def plus-forms1
+   (->> plus-trees
+        (map (fn [[l tree]]
+               [l (->> tree
+                       (make-forms ops1)
+                       (into []))]))
+        (into []))))
+
+(time
+ (def plus-vals1
+   (->> plus-forms1
+        (map (fn [[l forms]]
+               [l (->> forms
+                       (map eval-form1)
+                       (into []))]))
+        (into []))))
+
+(time
+ (def calibrations1
+   (->> plus-vals1
+        (filter (fn [[l values]]
+                  (some #{l} values))))))
+
+(def correct-test-values1
+  (map first calibrations1))
+
+(def total-calibration-result1
+  (reduce + correct-test-values1))
+
+;; ## Part II: Long Cat
+(defn long-cat [& xs]
+  (parse-long (apply str xs)))
+
+(def ops2 '(+ * |))
+
+(def forms2 (make-forms ops2 tree1))
+
+(defn eval-form2 [form]
+  (if (seq? form)
+    (let [[op l r] form]
+      ((case op + + * * | long-cat) (eval-form2 l) (eval-form2 r)))
+    form))
+
+(eval-form2 (last forms2))
+
+(def longest-equation
   (->> puzzle
-       (map (fn [[l rs]]
-              [l (make-tree rs)]))
-       (into [])))
+       (sort-by (fn [[_l rs]] (count rs)))
+       last))
 
-(def plus-forms
-  (->> plus-trees
-       (map (fn [[l tree]]
-              [l (insert-ops tree)]))
-       (into [])))
+(def longest-equation-length
+  (->> longest-equation
+       second
+       count))
 
-(def plus-vals
-  (->> plus-forms
-       (map (fn [[l forms]]
-              [l (->> forms
-                      (map eval-form)
-                      (into []))]))
-       (into [])))
+;; With 2 operators it's still reasonable:
+(math/pow 2 (dec longest-equation-length))
 
-(def calibrations
-  (->> plus-vals
-       (filter (fn [[l values]]
-                 (some #{l} values)))))
+;; But with 3...
+(math/pow 3 (dec longest-equation-length))
 
-(def correct-test-values
-  (map first calibrations))
+(def longest-tree
+  (->> longest-equation
+       second
+       make-tree))
 
-(def total-calibration-result
-  (reduce + correct-test-values))
+(make-forms ops1 longest-tree)
+(make-forms ops2 longest-tree)
+
+;; ### Interlude
+;;
+;; We need to explore an alternative approach.  Let's do all things in one go.
+;;
+(defn correct-equation?
+  ([op-fns test-value numbers]
+   (correct-equation? op-fns test-value (first numbers) (rest numbers)))
+
+  ([op-fns test-value acc numbers]
+   (if-not (seq numbers)
+     (= test-value acc)
+     (if (< test-value acc)
+       false                            ; acc is already bigger
+       (some #(correct-equation? op-fns
+                                 test-value
+                                 (% acc (first numbers))
+                                 (rest numbers))
+             op-fns)))))
+
+(def op-fns1 [+ *])
+
+(def correct-equations1
+  (filter #(apply correct-equation? op-fns1 %)
+          puzzle))
+
+(def calibration-result1
+  (->> correct-equations1
+       (map first)
+       (reduce +)))
+
+(= calibration-result1 total-calibration-result1)
+
+(def op-fns2 [+ * long-cat])
+
+(def correct-equations2
+  (filter #(apply correct-equation? op-fns2 %)
+          puzzle))
+
+(def calibration-result2
+  (->> correct-equations2
+       (map first)
+       (reduce +)))
