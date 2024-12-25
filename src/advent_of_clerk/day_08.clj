@@ -49,7 +49,6 @@
                       (into #{}))]))
        (into {})))
 
-;;
 ;; Now we need to consider each pair.  The easiest way to achieve that seems
 ;; to be to use a `for` list comprehension:
 ;;
@@ -118,11 +117,11 @@
 (count distinct-antinode-coords)
 
 ;; Let's check the picture:
-(def board-with-antinodes
+(defn add-antinodes [board coords]
   (reduce (fn [board yx]
             (update-in board yx #(if (= \. %) \# %)))
-          puzzle
-          distinct-antinode-coords))
+          board
+          coords))
 
 (defn render-board [board]
   (->> board
@@ -130,4 +129,37 @@
        (str/join "\n")))
 
 (clerk/html
- [:pre (render-board board-with-antinodes)])
+ [:pre (render-board (add-antinodes puzzle distinct-antinode-coords))])
+
+;; Part II
+(defn coords-line* [yx [dy dx]]
+  {:pre [(not= 0 dy dx)]}
+  (iterate (fn [[y x]]
+             [(+ y dy)
+              (+ x dx)])
+           yx))
+
+(defn coords-line [maxy maxx yx dydx]
+  (take-while (partial coords-within-bounds? maxy maxx)
+              (coords-line* yx dydx)))
+
+(defn antinode-coords* [maxy maxx [y1 x1] [y2 x2]]
+  (let [[dy dx] (coord-diff [y1 x1] [y2 x2])]
+    (concat (coords-line maxy maxx [y2 x2] [   dy     dx])
+            (coords-line maxy maxx [y1 x1] [(- dy) (- dx)]))))
+
+(antinode-coords* maxy maxx [0 0] [1 3])
+
+(def distinct-antinode-coords*
+  (->> antenna-coords-by-freq
+       (map (fn [[_ coords]]
+              (pairs coords)))
+       (mapcat (fn [coord-pairs]
+                 (mapcat (partial apply antinode-coords* maxy maxx)
+                         coord-pairs)))
+       distinct))
+
+(count distinct-antinode-coords*)
+
+(clerk/html
+ [:pre (render-board (add-antinodes puzzle distinct-antinode-coords*))])
