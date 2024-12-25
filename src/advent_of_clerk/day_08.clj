@@ -106,11 +106,28 @@
 (def maxx (->> puzzle first count dec))
 
 ;; Finally, we can apply all of the above tools to find the answer:
-(->> antenna-coords-by-freq
-     (map (fn [[_ coords]]
-            (pairs coords)))
-     (mapcat (fn [coord-pairs]
-               (mapcat (partial apply antinode-coords) coord-pairs)))
-     (filter (partial coords-within-bounds? maxy maxx))
-     distinct
-     count)
+(def distinct-antinode-coords
+  (->> antenna-coords-by-freq
+       (map (fn [[_ coords]]
+              (pairs coords)))
+       (mapcat (fn [coord-pairs]
+                 (mapcat (partial apply antinode-coords) coord-pairs)))
+       (filter (partial coords-within-bounds? maxy maxx))
+       distinct))
+
+(count distinct-antinode-coords)
+
+;; Let's check the picture:
+(def board-with-antinodes
+  (reduce (fn [board yx]
+            (update-in board yx #(if (= \. %) \# %)))
+          puzzle
+          distinct-antinode-coords))
+
+(defn render-board [board]
+  (->> board
+       (map (partial apply str))
+       (str/join "\n")))
+
+(clerk/html
+ [:pre (render-board board-with-antinodes)])
